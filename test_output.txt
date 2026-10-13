@@ -1,0 +1,169 @@
+######## 90_test_soal1
+--- T1.1 CHECK: debit negatif
+psql:90_test_soal1.sql:4: ERROR:  new row for relation "journal_lines" violates check constraint "ck_jl_debit_nonneg"
+--- T1.2 CHECK: debit=0 dan credit=0
+psql:90_test_soal1.sql:6: ERROR:  new row for relation "journal_lines" violates check constraint "ck_jl_not_both_zero"
+--- T1.3 CHECK: debit dan credit sekaligus > 0
+psql:90_test_soal1.sql:8: ERROR:  new row for relation "journal_lines" violates check constraint "ck_jl_one_side"
+--- T1.4 FK RESTRICT: hapus akun yang dipakai
+psql:90_test_soal1.sql:11: ERROR:  update or delete on table "chart_of_accounts" violates foreign key constraint "journal_lines_account_id_fkey" on table "journal_lines"
+--- T1.5 Bypass frontend: POSTED tak seimbang lewat SQL/API langsung
+psql:90_test_soal1.sql:13: ERROR:  Jurnal 1 harus memiliki minimal 2 baris (ada 1)
+--- T1.6 Jurnal seimbang -> sukses
+ header_id | posting_status | posting_seq |      hash16      
+-----------+----------------+-------------+------------------
+         1 | POSTED         |           1 | bebef42ba66d740d
+(1 row)
+
+--- T1.7 Deferred constraint: INSERT header langsung POSTED dalam satu transaksi (lines menyusul)
+psql:90_test_soal1.sql:22: ERROR:  Jurnal 2 harus memiliki minimal 2 baris (ada 0)
+######## 91_test_soal2
+--- T2.1 PURCHASE 10 -> stok 10
+ item_id | stock_qty 
+---------+-----------
+ BRG001  |        10
+(1 row)
+
+--- T2.2 SALE 3 -> stok 7
+ item_id | stock_qty 
+---------+-----------
+ BRG001  |         7
+(1 row)
+
+--- T2.3 SALE 8 (> stok 7) -> ditolak, stok tetap, tidak ada baris transaksi/jurnal
+psql:91_test_soal2.sql:10: ERROR:  Stok BRG001 tidak cukup: tersedia 7, diminta 8 (transaksi dibatalkan)
+ stock_qty 
+-----------
+         7
+(1 row)
+
+ trx_rows 
+----------
+        2
+(1 row)
+
+--- T2.4 ADJUSTMENT -2 (susut/retur pembelian) dan +1 (retur penjualan/selisih lebih)
+--- T2.5 qty tidak valid & item tidak ada
+psql:91_test_soal2.sql:17: ERROR:  Qty 0 harus > 0 untuk transaksi SALE
+psql:91_test_soal2.sql:18: ERROR:  insert or update on table "inventory_transactions" violates foreign key constraint "inventory_transactions_item_id_fkey"
+--- T2.6 Jurnal otomatis
+ reference_no | account_code |   debit   |  credit   
+--------------+--------------+-----------+-----------
+ INVTRX-1     | 1-1300       | 100000.00 |      0.00
+ INVTRX-1     | 2-1100       |      0.00 | 100000.00
+ INVTRX-2     | 5-1100       |  30000.00 |      0.00
+ INVTRX-2     | 1-1300       |      0.00 |  30000.00
+ INVTRX-4     | 5-9000       |  20000.00 |      0.00
+ INVTRX-4     | 1-1300       |      0.00 |  20000.00
+ INVTRX-5     | 1-1300       |  10000.00 |      0.00
+ INVTRX-5     | 5-9000       |      0.00 |  10000.00
+(8 rows)
+
+--- T2.7 Rekonsiliasi GL vs sub-ledger
+ saldo_gl_persediaan | nilai_subledger | selisih 
+---------------------+-----------------+---------
+            60000.00 |        60000.00 |    0.00
+(1 row)
+
+ item_id | stock_qty |  nilai   
+---------+-----------+----------
+ BRG001  |         6 | 60000.00
+(1 row)
+
+--- T2.8 Riwayat mutasi tak boleh diubah
+psql:91_test_soal2.sql:27: ERROR:  UPDATE pada inventory_transactions ditolak: tabel ini append-only
+psql:91_test_soal2.sql:28: ERROR:  DELETE pada inventory_transactions ditolak: tabel ini append-only
+######## 92_test_soal3
+--- T3.1 voucher kas keluar seimbang
+ header_id 
+-----------
+         1
+(1 row)
+
+--- T3.2 voucher tidak seimbang (2 baris tapi nominal beda) via RPC
+psql:92_test_soal3.sql:11: ERROR:  Jurnal 2 tidak seimbang: debit 1500000.00 <> kredit 1400000.00
+--- T3.3 voucher tanpa akun kas
+psql:92_test_soal3.sql:14: ERROR:  Voucher kas keluar harus mengkredit akun kas/bank (net kas keluar > 0)
+--- T3.4 nominal 3 desimal / akun tak dikenal / tanggal masa depan
+psql:92_test_soal3.sql:16: ERROR:  Nominal maksimal 2 desimal (akun 6-1100)
+psql:92_test_soal3.sql:17: ERROR:  Akun 9-9999 tidak ditemukan atau nonaktif
+psql:92_test_soal3.sql:18: ERROR:  Tanggal voucher tidak boleh di masa depan
+--- T3.5 UPDATE / DELETE jurnal POSTED, UPDATE / DELETE baris, TRUNCATE
+psql:92_test_soal3.sql:20: ERROR:  Jurnal KK-001 berstatus POSTED tidak boleh diubah. Gunakan jurnal pembalik (rpc_reverse_journal).
+psql:92_test_soal3.sql:21: ERROR:  Jurnal KK-001 berstatus POSTED tidak boleh diubah. Gunakan jurnal pembalik (rpc_reverse_journal).
+psql:92_test_soal3.sql:22: ERROR:  Jurnal KK-001 berstatus POSTED tidak boleh dihapus. Gunakan jurnal pembalik (rpc_reverse_journal).
+psql:92_test_soal3.sql:23: ERROR:  Baris jurnal KK-001 tidak boleh UPDATE karena jurnal berstatus POSTED. Gunakan jurnal pembalik.
+psql:92_test_soal3.sql:24: ERROR:  Baris jurnal KK-001 tidak boleh DELETE karena jurnal berstatus POSTED. Gunakan jurnal pembalik.
+psql:92_test_soal3.sql:25: ERROR:  Baris jurnal KK-001 tidak boleh INSERT karena jurnal berstatus POSTED. Gunakan jurnal pembalik.
+psql:92_test_soal3.sql:26: ERROR:  TRUNCATE pada journal_lines ditolak: tabel ini append-only
+psql:92_test_soal3.sql:27: NOTICE:  truncate cascades to table "journal_lines"
+psql:92_test_soal3.sql:27: ERROR:  TRUNCATE pada journal_headers ditolak: tabel ini append-only
+--- T3.6 storno
+ rev_id 
+--------
+      5
+(1 row)
+
+psql:92_test_soal3.sql:30: ERROR:  Jurnal KK-001 sudah pernah dibalik
+psql:92_test_soal3.sql:31: ERROR:  Jurnal REV-KK-001 adalah jurnal pembalik dan tidak dapat dibalik lagi
+psql:92_test_soal3.sql:32: ERROR:  Alasan pembalikan wajib diisi (minimal 5 karakter)
+ reference_no | account_code |   debit    |   credit   
+--------------+--------------+------------+------------
+ KK-001       | 6-1100       | 1500000.00 |       0.00
+ KK-001       | 1-1200       |       0.00 | 1500000.00
+ REV-KK-001   | 6-1100       |       0.00 | 1500000.00
+ REV-KK-001   | 1-1200       | 1500000.00 |       0.00
+(4 rows)
+
+ reference_no | posting_status | is_reversed | reversed_by_id 
+--------------+----------------+-------------+----------------
+ KK-001       | POSTED         | t           |              5
+ REV-KK-001   | POSTED         | f           |               
+(2 rows)
+
+--- T3.7 hash chain valid
+ header_id | reference_no | posting_seq | is_valid | reason 
+-----------+--------------+-------------+----------+--------
+         1 | KK-001       |           1 | t        | OK
+         5 | REV-KK-001   |           2 | t        | OK
+(2 rows)
+
+ header_id | created_by | posted_by | posting_seq |     prev     |     hash     
+-----------+------------+-----------+-------------+--------------+--------------
+         1 | kasir-01   | kasir-01  |           1 |              | 9d113569c9f2
+         5 | kasir-01   | kasir-01  |           2 | 9d113569c9f2 | d590c0ba80cc
+(2 rows)
+
+--- T3.8 audit_log tak bisa diubah
+psql:92_test_soal3.sql:41: ERROR:  UPDATE pada audit_log ditolak: tabel ini append-only
+psql:92_test_soal3.sql:42: ERROR:  DELETE pada audit_log ditolak: tabel ini append-only
+psql:92_test_soal3.sql:43: ERROR:  TRUNCATE pada audit_log ditolak: tabel ini append-only
+    table_name     | action | count 
+-------------------+--------+-------
+ chart_of_accounts | INSERT |     7
+ journal_headers   | INSERT |     2
+ journal_headers   | UPDATE |     2
+ journal_lines     | INSERT |     4
+(4 rows)
+
+--- T3.9 Simulasi tamper oleh superuser (trigger dimatikan) -> terdeteksi hash
+ header_id | reference_no | is_valid |                            reason                             
+-----------+--------------+----------+---------------------------------------------------------------
+         1 | KK-001       | f        | hash_checksum tidak cocok: isi jurnal berubah setelah posting
+         5 | REV-KK-001   | f        | hash_checksum tidak cocok: isi jurnal berubah setelah posting
+(2 rows)
+
+######## 93_test_privileges
+--- T4.1 authenticated INSERT langsung ke journal_headers
+psql:93_test_privileges.sql:8: ERROR:  permission denied for table journal_headers
+--- T4.2 authenticated memanggil RPC
+ rpc_post_cash_disbursement 
+----------------------------
+                          1
+(1 row)
+
+--- T4.3 authenticated memanggil fungsi internal / UPDATE
+psql:93_test_privileges.sql:12: ERROR:  permission denied for function fn_create_and_post_journal
+psql:93_test_privileges.sql:13: ERROR:  permission denied for table journal_headers
+--- T4.4 anon membaca
+psql:93_test_privileges.sql:17: ERROR:  permission denied for table journal_headers

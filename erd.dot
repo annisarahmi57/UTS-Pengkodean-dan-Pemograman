@@ -1,0 +1,44 @@
+digraph ERD {
+  rankdir=LR; fontname="Helvetica"; nodesep=0.6; ranksep=1.1; dpi=160;
+  node [shape=plain, fontname="Helvetica", fontsize=11];
+  edge [fontname="Helvetica", fontsize=10, color="#334155", arrowhead=none];
+
+  coa [label=<
+  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#334155">
+    <TR><TD BGCOLOR="#1e3a5f" COLSPAN="2"><FONT COLOR="white"><B>chart_of_accounts</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT" PORT="pk"><B>PK</B> account_id</TD><TD ALIGN="LEFT">INT</TD></TR>
+    <TR><TD ALIGN="LEFT">account_code (UQ)</TD><TD ALIGN="LEFT">VARCHAR(20)</TD></TR>
+    <TR><TD ALIGN="LEFT">account_name</TD><TD ALIGN="LEFT">VARCHAR(100)</TD></TR>
+    <TR><TD ALIGN="LEFT">normal_balance</TD><TD ALIGN="LEFT">DEBIT | CREDIT</TD></TR>
+    <TR><TD ALIGN="LEFT">report_class</TD><TD ALIGN="LEFT">NERACA | LABA_RUGI</TD></TR>
+    <TR><TD ALIGN="LEFT">is_cash, is_active</TD><TD ALIGN="LEFT">BOOLEAN</TD></TR>
+  </TABLE>>];
+
+  jl [label=<
+  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#334155">
+    <TR><TD BGCOLOR="#1e3a5f" COLSPAN="2"><FONT COLOR="white"><B>journal_lines</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> line_id</TD><TD ALIGN="LEFT">BIGINT</TD></TR>
+    <TR><TD ALIGN="LEFT" PORT="h"><B>FK</B> header_id</TD><TD ALIGN="LEFT">BIGINT NOT NULL</TD></TR>
+    <TR><TD ALIGN="LEFT" PORT="a"><B>FK</B> account_id</TD><TD ALIGN="LEFT">INT NOT NULL</TD></TR>
+    <TR><TD ALIGN="LEFT">debit</TD><TD ALIGN="LEFT">NUMERIC(18,2) &gt;= 0</TD></TR>
+    <TR><TD ALIGN="LEFT">credit</TD><TD ALIGN="LEFT">NUMERIC(18,2) &gt;= 0</TD></TR>
+  </TABLE>>];
+
+  jh [label=<
+  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#334155">
+    <TR><TD BGCOLOR="#1e3a5f" COLSPAN="2"><FONT COLOR="white"><B>journal_headers</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT" PORT="pk"><B>PK</B> header_id</TD><TD ALIGN="LEFT">BIGINT</TD></TR>
+    <TR><TD ALIGN="LEFT">trx_date</TD><TD ALIGN="LEFT">DATE</TD></TR>
+    <TR><TD ALIGN="LEFT">reference_no (UQ)</TD><TD ALIGN="LEFT">VARCHAR(50)</TD></TR>
+    <TR><TD ALIGN="LEFT">description</TD><TD ALIGN="LEFT">TEXT</TD></TR>
+    <TR><TD ALIGN="LEFT">posting_status</TD><TD ALIGN="LEFT">DRAFT | POSTED</TD></TR>
+    <TR><TD ALIGN="LEFT"><B>FK</B> reversal_of (UQ)</TD><TD ALIGN="LEFT">self-ref (storno)</TD></TR>
+    <TR><TD ALIGN="LEFT">created_by, created_at</TD><TD ALIGN="LEFT">audit</TD></TR>
+    <TR><TD ALIGN="LEFT">posted_by, posted_at</TD><TD ALIGN="LEFT">audit</TD></TR>
+    <TR><TD ALIGN="LEFT">posting_seq, prev_hash</TD><TD ALIGN="LEFT">rantai hash</TD></TR>
+    <TR><TD ALIGN="LEFT">hash_checksum</TD><TD ALIGN="LEFT">CHAR(64)</TD></TR>
+  </TABLE>>];
+
+  coa -> jl:a [taillabel="1", headlabel="0..*", labeldistance=2.2, label="  dipakai oleh  ", arrowhead=crow];
+  jh  -> jl:h [taillabel="1", headlabel="2..*", labeldistance=2.2, label="  terdiri dari  ", arrowhead=crow];
+}
