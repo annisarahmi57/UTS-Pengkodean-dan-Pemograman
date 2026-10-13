@@ -5,7 +5,7 @@
 * **NIM:** 12030124140304
 * **Dosen Pengampu:** Totok Dewayanto
 * **Tanggal Ujian:** Selasa, 13 Oktober 2026
-* **Demo Web Purwarupa:** [Akses Live Demo GitHub Pages](https://annisarahmi57.github.io/UTS-Pengkodean-dan-Pemograman/) 
+* **Demo Web Purwarupa:** [Akses Live Demo GitHub Pages](https://annisarahmi57.github.io/UTS-Pengkodean-dan-Pemograman/voucher_kas_keluar.html) 
 
 ---
 
